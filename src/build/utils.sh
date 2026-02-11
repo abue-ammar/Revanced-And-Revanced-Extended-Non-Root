@@ -359,11 +359,48 @@ get_apkpure() {
 
 #################################################
 
+# Extract version name from APK:
+get_apk_version() {
+	local apk_file="$1"
+	local version_name=""
+	
+	# Try using aapt2 first, then fallback to aapt
+	if command -v aapt2 &> /dev/null; then
+		version_name=$(aapt2 dump badging "$apk_file" 2>/dev/null | grep -oP "versionName='\K[^']+")
+	elif command -v aapt &> /dev/null; then
+		version_name=$(aapt dump badging "$apk_file" 2>/dev/null | grep -oP "versionName='\K[^']+")
+	fi
+	
+	# If aapt/aapt2 not available or failed, try extracting from AndroidManifest.xml using apktool or unzip
+	if [ -z "$version_name" ]; then
+		# Create a temporary directory for extraction
+		local temp_dir=$(mktemp -d)
+		if unzip -q "$apk_file" "AndroidManifest.xml" -d "$temp_dir" 2>/dev/null; then
+			# Try to extract version from binary XML using strings command
+			version_name=$(strings "$temp_dir/AndroidManifest.xml" 2>/dev/null | grep -oP '^\d+\.\d+(\.\d+)*(\.\d+)*$' | head -1)
+		fi
+		rm -rf "$temp_dir"
+	fi
+	
+	echo "$version_name"
+}
+
+#################################################
+
 # Patching apps with Revanced CLI:
 patch() {
 	green_log "[+] Patching $1:"
 	if [ -f "./download/$1.apk" ]; then
 		local p b m ks a pu opt force
+		
+		# Extract version from the APK
+		local apk_version=$(get_apk_version "./download/$1.apk")
+		local version_suffix=""
+		if [ -n "$apk_version" ]; then
+			version_suffix="-v${apk_version}"
+			green_log "[+] Detected APK version: $apk_version"
+		fi
+		
 		if [ "$3" = inotia ]; then
 			p="patch " b="-p *.rvp" m="" a="" ks=" --keystore=./src/_ks.keystore" pu="--purge=true" opt="--legacy-options=./src/options/$2.json" force=" --force"
 			echo "Patching with Revanced-cli inotia"
@@ -391,7 +428,10 @@ patch() {
 		if [ "$3" = inotia ]; then
 			unset CI GITHUB_ACTION GITHUB_ACTIONS GITHUB_ACTOR GITHUB_ENV GITHUB_EVENT_NAME GITHUB_EVENT_PATH GITHUB_HEAD_REF GITHUB_JOB GITHUB_REF GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_RUN_NUMBER GITHUB_SHA GITHUB_WORKFLOW GITHUB_WORKSPACE RUN_ID RUN_NUMBER
 		fi
-		eval java -jar *cli*.jar $p$b $m$opt --out=./release/$1-$2.apk$excludePatches$includePatches$ks $pu$force $a./download/$1.apk
+		
+		# Construct output filename with version
+		local output_name="$1-$2${version_suffix}"
+		eval java -jar *cli*.jar $p$b $m$opt --out=./release/${output_name}.apk$excludePatches$includePatches$ks $pu$force $a./download/$1.apk
   		unset version
 		unset lock_version
 		unset excludePatches
