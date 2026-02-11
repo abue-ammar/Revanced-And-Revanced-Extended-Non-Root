@@ -1,0 +1,21 @@
+# Build artifacts and downloaded tools
+pup
+pup.zip
+APKEditor.jar
+
+# Downloaded APK files and patches
+download/
+release/
+
+# Revanced tools (downloaded at build time)
+revanced-cli-*.jar
+revanced-patches-*.jar
+revanced-integrations-*.apk
+*.rvp
+*.mpp
+morphe-cli-*.jar
+morphe-patches-*.jar
+
+# Temporary files
+*.tmp
+*.log

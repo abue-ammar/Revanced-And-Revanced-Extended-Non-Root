@@ -7,6 +7,11 @@ runs:
       with:
         distribution: 'zulu'
         java-version: '21'
+    - name: Install Android build tools for aapt
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y aapt
 #    - name: Setup Cloudflare Warp
 #      shell: bash
 #      run: bash src/etc/cf_warp.sh
